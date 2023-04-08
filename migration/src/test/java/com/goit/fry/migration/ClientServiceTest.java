@@ -2,15 +2,14 @@ package com.goit.fry.migration;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -49,47 +48,139 @@ class ClientServiceTest {
 	@Test
 	void createRecInEmptyTable() {
 
+		logger.info("----createRecInEmptyTable()----");
 		try (ClientService srv = new ClientService(conn)) {
 
 			assertDoesNotThrow(() -> srv.create("Simon"));
 		}
 		catch (Exception e) {
 
+			assertNull(e);
 			logger.error(e);
 		}
 	}
 
 	@Test
-	void createEmptyNameThrows() {
+	void createEmptyNameReturnsInvalidID() {
 
+		logger.info("----createEmptyNameReturnsInvalidID()----");
 		try (ClientService srv = new ClientService(conn)) {
 
-			assertThrows(SQLException.class, () -> srv.create(""));
+			assertEquals(ClientService.INVALID_ID, srv.create(""));
 		}
 		catch (Exception e) {
 
+			assertNull(e);
 			logger.error(e);
 		}
 	}
 
 	@Test
-	void getById() {
+	void createOneCharNameReturnsInvalidID() {
 
+		logger.info("----createOneCharNameReturnsInvalidID()----");
+		try (ClientService srv = new ClientService(conn)) {
+
+			assertEquals(ClientService.INVALID_ID, srv.create("A"));
+		}
+		catch (Exception e) {
+
+			assertNull(e);
+			logger.error(e);
+		}
 	}
 
 	@Test
-	void setName() {
+	void getByCorrectId() {
 
+		logger.info("----getByCorrectId()----");
+		try (ClientService srv = new ClientService(conn)) {
+
+			long id = srv.create("Simon");
+			assertEquals("Simon", srv.getById(id));
+		}
+		catch (Exception e) {
+
+			assertNull(e);
+			logger.error(e);
+		}
 	}
 
 	@Test
-	void deleteById() {
+	void getByIncorrectId() {
 
+		logger.info("----getByIncorrectId()----");
+		try (ClientService srv = new ClientService(conn)) {
+
+			assertNull(srv.getById(ClientService.INVALID_ID));
+		}
+		catch (Exception e) {
+
+			assertNull(e);
+			logger.error(e);
+		}
 	}
 
 	@Test
-	void listAll() {
+	void setCorrectName() {
 
+		logger.info("----setCorrectName()----");
+		try (ClientService srv = new ClientService(conn)) {
+
+			String name = "Simon";
+			String newName = "Alex";
+			long id = srv.create(name);
+			assertDoesNotThrow(() -> srv.setName(id, newName));
+			assertEquals(newName, srv.getById(id));
+		}
+		catch (Exception e) {
+
+			assertNull(e);
+			logger.error(e);
+		}
+	}
+
+	@Test
+	void deleteByCorrectId() {
+
+		logger.info("----deleteByCorrectId()----");
+		try (ClientService srv = new ClientService(conn)) {
+
+			String name = "Simon";
+			long id = srv.create(name);
+			assertDoesNotThrow(() -> srv.deleteById(id));
+			assertNull(srv.getById(id));
+		}
+		catch (Exception e) {
+
+			assertNull(e);
+			logger.error(e);
+		}
+	}
+
+	@Test
+	void testListAll() {
+
+		logger.info("----testListAll()----");
+		try (ClientService srv = new ClientService(conn)) {
+
+			String[] names = {"Alex", "Simon", "Tom"};
+			for (String name : names)
+				srv.create(name);
+
+			List<Client> clients = srv.listAll();
+			assertEquals(names.length, clients.size());
+
+			for (int i = 0; i < clients.size(); i++) {
+				assertNotEquals(ClientService.INVALID_ID, clients.get(i).getId());
+				assertEquals(names[i], clients.get(i).getName());
+			}
+		}
+		catch (Exception e) {
+
+			assertNull(e);
+			logger.error(e);
+		}
 	}
 
 	@AfterEach

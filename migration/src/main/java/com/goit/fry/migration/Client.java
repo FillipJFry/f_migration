@@ -1,4 +1,4 @@
-package com.goit.fry.migration.entities;
+package com.goit.fry.migration;
 
 public class Client {
 
