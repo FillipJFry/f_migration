@@ -14,16 +14,14 @@ public class ClientService implements Closeable {
 	public static final int MAX_CLIENT_NAME_LEN = 60;
 	public static final int INVALID_ID = -1;
 	private static final Logger logger = LogManager.getRootLogger();
-	private final Connection conn;
-	private final PreparedStatement stmtInsert, stmtGetMaxId;
+	private final PreparedStatement stmtInsert;
 	private final PreparedStatement stmtGetById, stmtSet;
 	private final PreparedStatement stmtDelete, stmtGetAll;
 
 	public ClientService(Connection conn) throws SQLException {
 
-		this.conn = conn;
-		stmtInsert = conn.prepareStatement("INSERT INTO client VALUES(?, ?)");
-		stmtGetMaxId = conn.prepareStatement("SELECT MAX(id) as max_id FROM client");
+		stmtInsert = conn.prepareStatement("INSERT INTO client(name) VALUES(?)",
+											Statement.RETURN_GENERATED_KEYS);
 		stmtGetById = conn.prepareStatement("SELECT name FROM client WHERE id = ?");
 		stmtSet = conn.prepareStatement("UPDATE client SET name = ? WHERE id = ?");
 		stmtDelete = conn.prepareStatement("DELETE FROM client WHERE id = ?");
@@ -37,26 +35,25 @@ public class ClientService implements Closeable {
 		int affected;
 		long id;
 		try {
-			try (TransactionGuard guard = new TransactionGuard(conn)) {
-				try (ResultSet rs = stmtGetMaxId.executeQuery()) {
+			stmtInsert.setString(1, name);
+			affected = stmtInsert.executeUpdate();
 
-					if (rs.next()) id = rs.getLong(1) + 1;
-					else id = 0;
-				}
+			try (ResultSet rsID = stmtInsert.getGeneratedKeys()) {
+				if (!rsID.next())
+					throw new SQLException("cannot create client " + name +
+											", no ID obtained.");
 
-				stmtInsert.setLong(1, id);
-				stmtInsert.setString(2, name);
-				affected = stmtInsert.executeUpdate();
-				guard.commit();
+				id = rsID.getLong(1);
 			}
 		}
 		catch (Exception e) {
 
-			logger.error(e);
+			logger.error("ClientService::create(" + name + ") : " + e);
 			return INVALID_ID;
 		}
 
-		logger.info("ClientService::create(" + name + ") : INSERT INTO returned " + affected);
+		logger.info("ClientService::create(" + name + ") : INSERT INTO returned " + affected +
+					", new ID = " + id);
 		return id;
 	}
 
@@ -145,7 +142,6 @@ public class ClientService implements Closeable {
 			stmtDelete.close();
 			stmtSet.close();
 			stmtGetById.close();
-			stmtGetMaxId.close();
 			stmtInsert.close();
 		}
 		catch (SQLException e) {
